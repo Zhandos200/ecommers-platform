@@ -18,6 +18,21 @@ services:
     networks:
       - micro_net
 
+  user-service:
+    build:
+      context: ./user-service
+    container_name: user-service
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: assbreaker2023
+      DB_NAME: users
+    ports:
+      - "8083:8083"
+    networks:
+      - micro_net
+
   order-service:
     build:
       context: ./order-service
@@ -40,6 +55,7 @@ services:
     depends_on:
       - inventory-service
       - order-service
+      - user-service
     ports:
       - "8080:8080"
     networks:

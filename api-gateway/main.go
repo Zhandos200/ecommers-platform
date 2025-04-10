@@ -4,6 +4,7 @@ import (
 	"api-gateway/middleware"
 	"api-gateway/router"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,11 +31,16 @@ type Order struct {
 	Items     []OrderItem `json:"items"`
 }
 
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
 func main() {
 	r := gin.Default()
 
 	r.LoadHTMLGlob("templates/*")
-
 	r.Use(middleware.RequestLogger())
 
 	r.GET("/", func(c *gin.Context) {
@@ -42,7 +48,7 @@ func main() {
 	})
 
 	r.GET("/products", func(c *gin.Context) {
-		resp, err := http.Get("http://localhost:8080/api/products") // use API Gateway
+		resp, err := http.Get("http://localhost:8080/api/products")
 		if err != nil {
 			c.String(500, "Error loading products")
 			return
@@ -67,6 +73,21 @@ func main() {
 		json.NewDecoder(resp.Body).Decode(&orders)
 
 		c.HTML(200, "orders.html", gin.H{"Orders": orders})
+	})
+
+	r.GET("/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/api/users/profile/%s", id))
+		if err != nil {
+			c.String(500, "Error loading user")
+			return
+		}
+		defer resp.Body.Close()
+
+		var user User
+		json.NewDecoder(resp.Body).Decode(&user)
+
+		c.HTML(200, "users.html", gin.H{"User": user})
 	})
 
 	router.SetupRoutes(r)
