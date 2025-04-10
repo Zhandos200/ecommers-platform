@@ -18,7 +18,7 @@ func (h *OrderHandler) RegisterRoutes(r *gin.Engine) {
 	r.POST("/orders", h.Create)
 	r.GET("/orders/:id", h.GetByID)
 	r.PATCH("/orders/:id", h.UpdateStatus)
-	r.GET("/orders", h.ListByUser)
+	r.GET("/orders", h.ListAllOrByUser)
 }
 
 func (h *OrderHandler) Create(c *gin.Context) {
@@ -59,6 +59,26 @@ func (h *OrderHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusOK)
+}
+
+func (h *OrderHandler) ListAllOrByUser(c *gin.Context) {
+	userID := c.Query("user_id")
+	var (
+		orders []model.Order
+		err    error
+	)
+
+	if userID != "" {
+		orders, err = h.Usecase.ListByUser(userID)
+	} else {
+		orders, err = h.Usecase.ListAll()
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, orders)
 }
 
 func (h *OrderHandler) ListByUser(c *gin.Context) {

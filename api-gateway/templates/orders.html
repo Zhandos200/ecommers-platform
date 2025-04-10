@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head><title>Orders</title></head>
+<body>
+  <h1>Order List</h1>
+  <ul>
+    {{ range .Orders }}
+      <li>
+        <strong>Order #{{ .ID }}</strong><br>
+        User ID: {{ .UserID }}<br>
+        Status: {{ .Status }}<br>
+        Created At: {{ .CreatedAt }}<br>
+        Items:
+        <ul>
+          {{ range .Items }}
+            <li>Product ID: {{ .ProductID }}, Quantity: {{ .Quantity }}</li>
+          {{ end }}
+        </ul>
+      </li>
+    {{ else }}
+      <li>No orders found.</li>
+    {{ end }}
+  </ul>
+  <a href="/">Back to Home</a>
+</body>
+</html>

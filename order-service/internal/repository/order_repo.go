@@ -35,6 +35,20 @@ func (r *OrderRepository) Create(order *model.Order) error {
 	return nil
 }
 
+func (r *OrderRepository) ListAll() ([]model.Order, error) {
+	var orders []model.Order
+	err := r.DB.Select(&orders, "SELECT * FROM orders")
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range orders {
+		r.DB.Select(&orders[i].Items, "SELECT product_id, quantity FROM order_items WHERE order_id=$1", orders[i].ID)
+	}
+
+	return orders, nil
+}
+
 func (r *OrderRepository) GetByID(id int) (*model.Order, error) {
 	var order model.Order
 	err := r.DB.Get(&order, "SELECT * FROM orders WHERE id=$1", id)

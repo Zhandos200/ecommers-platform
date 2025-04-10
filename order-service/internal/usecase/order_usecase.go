@@ -7,10 +7,15 @@ type OrderRepo interface {
 	GetByID(id int) (*model.Order, error)
 	UpdateStatus(id int, status string) error
 	ListByUser(userID string) ([]model.Order, error)
+	ListAll() ([]model.Order, error)
 }
 
 type OrderUsecase struct {
 	Repo OrderRepo
+}
+
+func (u *OrderUsecase) ListAll() ([]model.Order, error) {
+	return u.Repo.ListAll()
 }
 
 func (u *OrderUsecase) Create(o *model.Order) error {
