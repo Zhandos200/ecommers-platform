@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  inventory-service:
+    build:
+      context: ./inventory-service
+    container_name: inventory-service
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: assbreaker2023
+      DB_NAME: inventory
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./inventory-service/.env:/app/.env   # ✅ This is correct
+    networks:
+      - micro_net
+
+  order-service:
+    build:
+      context: ./order-service
+    container_name: order-service
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: assbreaker2023
+      DB_NAME: orders
+    ports:
+      - "8082:8082"
+    networks:
+      - micro_net
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    depends_on:
+      - inventory-service
+      - order-service
+    ports:
+      - "8080:8080"
+    networks:
+      - micro_net
+
+networks:
+  micro_net:
+    driver: bridge

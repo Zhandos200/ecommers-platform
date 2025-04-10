@@ -10,24 +10,23 @@ import (
 )
 
 func NewPostgres() *sqlx.DB {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// Optional: load .env only if running outside Docker
+	_ = godotenv.Load() // ignore error silently, fallback to os.Getenv
 
-	// Get the password from environment variables
-	password := os.Getenv("DB_PASSWORD")
-	if password == "" {
-		log.Fatal("DB_PASSWORD is not set in environment variables")
-	}
+	// Build the connection string from environment variables
+	dsn := "host=" + os.Getenv("DB_HOST") +
+		" port=" + os.Getenv("DB_PORT") +
+		" user=" + os.Getenv("DB_USER") +
+		" password=" + os.Getenv("DB_PASSWORD") +
+		" dbname=" + os.Getenv("DB_NAME") +
+		" sslmode=disable"
 
-	// Build the connection string with the environment variable
-	dsn := "host=localhost port=5432 user=postgres password=" + password + " dbname=inventory sslmode=disable"
+	log.Println("📦 Connecting with DSN:", dsn) // Temporary log for debugging
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		log.Fatalln("DB Connection error:", err)
+		log.Fatalln("❌ DB Connection error:", err)
 	}
+	log.Println("✅ Successfully connected to PostgreSQL")
 	return db
 }
