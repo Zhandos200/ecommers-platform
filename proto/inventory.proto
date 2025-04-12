@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "api-gateway/pb/inventory;inventory";
+
+
+message Product {
+  int64 id = 1;
+  string name = 2;
+  string category = 3;
+  int32 stock = 4;
+  float price = 5;
+}
+
+message ProductID {
+  int64 id = 1;
+}
+
+message ProductList {
+  repeated Product products = 1;
+}
+
+message Empty {}
+
+service InventoryService {
+  rpc CreateProduct(Product) returns (Product);
+  rpc GetProduct(ProductID) returns (Product);
+  rpc UpdateProduct(Product) returns (Product);
+  rpc DeleteProduct(ProductID) returns (Empty);
+  rpc ListProducts(Empty) returns (ProductList);
+}

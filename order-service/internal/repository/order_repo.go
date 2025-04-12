@@ -65,7 +65,7 @@ func (r *OrderRepository) UpdateStatus(id int, status string) error {
 	return err
 }
 
-func (r *OrderRepository) ListByUser(userID string) ([]model.Order, error) {
+func (r *OrderRepository) ListByUser(userID int) ([]model.Order, error) {
 	var orders []model.Order
 	err := r.DB.Select(&orders, "SELECT * FROM orders WHERE user_id=$1", userID)
 	if err != nil {

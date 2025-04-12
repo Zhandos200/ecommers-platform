@@ -36,13 +36,13 @@ func SetupRoutes(r *gin.Engine) {
 		orderProxy.ServeHTTP(c.Writer, c.Request)
 	})
 
-	// ✅ Handle base route (e.g., /api/users)
+	// Handle base route (e.g., /api/users)
 	r.Any("/api/users", func(c *gin.Context) {
 		c.Request.URL.Path = "/" // must be single slash!
 		userProxy.ServeHTTP(c.Writer, c.Request)
 	})
 
-	// ✅ Handle all subroutes like /api/users/register, /login, /profile/:id
+	// Handle all subroutes like /api/users/register, /login, /profile/:id
 	r.Any("/api/users/*path", func(c *gin.Context) {
 		c.Request.URL.Path = c.Param("path") // NOT "/" + c.Param("path")
 		userProxy.ServeHTTP(c.Writer, c.Request)

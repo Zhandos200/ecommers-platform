@@ -18,9 +18,9 @@ func NewPostgres() *sqlx.DB {
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		log.Fatalln("❌ DB connection error:", err)
+		log.Fatalln("DB connection error:", err)
 	}
 
-	log.Println("✅ Connected to PostgreSQL (user-service)")
+	log.Println("Connected to PostgreSQL (user-service)")
 	return db
 }

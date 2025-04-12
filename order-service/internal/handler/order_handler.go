@@ -1,96 +1,105 @@
 package handler
 
 import (
-	"net/http"
-	"strconv"
-
+	"context"
 	"order-service/internal/model"
 	"order-service/internal/usecase"
 
-	"github.com/gin-gonic/gin"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	pb "order-service/pb/order"
 )
 
 type OrderHandler struct {
-	Usecase *usecase.OrderUsecase
+	pb.UnimplementedOrderServiceServer
+	usecase *usecase.OrderUsecase
 }
 
-func (h *OrderHandler) RegisterRoutes(r *gin.Engine) {
-	r.POST("/orders", h.Create)
-	r.GET("/orders/:id", h.GetByID)
-	r.PATCH("/orders/:id", h.UpdateStatus)
-	r.GET("/orders", h.ListAllOrByUser)
+// handler/order_handler.go
+func NewOrderHandler(uc *usecase.OrderUsecase) *OrderHandler {
+	return &OrderHandler{usecase: uc}
 }
 
-func (h *OrderHandler) Create(c *gin.Context) {
-	var o model.Order
-	if err := c.ShouldBindJSON(&o); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.OrderRequest) (*pb.OrderResponse, error) {
+	order := &model.Order{
+		UserID: int(req.UserId), // fixed: proto = int64 → model = int
+		Status: "pending",
 	}
-	o.Status = "pending"
-	if err := h.Usecase.Create(&o); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+
+	for _, item := range req.Items {
+		order.Items = append(order.Items, model.OrderItem{
+			ProductID: int(item.ProductId),
+			Quantity:  int(item.Quantity),
+		})
 	}
-	c.JSON(http.StatusCreated, o)
+
+	if err := h.usecase.Create(order); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create order: %v", err)
+	}
+
+	return convertToOrderResponse(order), nil
 }
 
-func (h *OrderHandler) GetByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	order, err := h.Usecase.GetByID(id)
+func (h *OrderHandler) GetOrder(ctx context.Context, req *pb.OrderID) (*pb.OrderResponse, error) {
+	order, err := h.usecase.GetByID(int(req.Id)) // order is *model.Order
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-		return
+		return nil, status.Errorf(codes.NotFound, "order not found")
 	}
-	c.JSON(http.StatusOK, order)
+	return convertToOrderResponse(order), nil
 }
 
-func (h *OrderHandler) UpdateStatus(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	var payload struct {
-		Status string `json:"status"`
+func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *pb.StatusUpdate) (*pb.OrderResponse, error) {
+	if err := h.usecase.UpdateStatus(int(req.Id), req.Status); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update order status")
 	}
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	order, err := h.usecase.GetByID(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "order not found")
 	}
-	if err := h.Usecase.UpdateStatus(id, payload.Status); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusOK)
+	return convertToOrderResponse(order), nil
 }
 
-func (h *OrderHandler) ListAllOrByUser(c *gin.Context) {
-	userID := c.Query("user_id")
+func (h *OrderHandler) ListOrders(ctx context.Context, req *pb.UserOrdersRequest) (*pb.OrderList, error) {
 	var (
 		orders []model.Order
 		err    error
 	)
 
-	if userID != "" {
-		orders, err = h.Usecase.ListByUser(userID)
+	if req.UserId != 0 {
+		orders, err = h.usecase.ListByUser(int(req.UserId))
 	} else {
-		orders, err = h.Usecase.ListAll()
+		orders, err = h.usecase.ListAll()
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, status.Errorf(codes.Internal, "failed to list orders: %v", err)
 	}
-	c.JSON(http.StatusOK, orders)
+
+	var result pb.OrderList
+	for i := range orders {
+		result.Orders = append(result.Orders, convertToOrderResponse(&orders[i]))
+	}
+	return &result, nil
+
 }
 
-func (h *OrderHandler) ListByUser(c *gin.Context) {
-	userID := c.Query("user_id")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
-		return
+func convertToOrderResponse(order *model.Order) *pb.OrderResponse {
+	var items []*pb.OrderItem
+	for _, item := range order.Items {
+		items = append(items, &pb.OrderItem{
+			ProductId: int64(item.ProductID),
+			Quantity:  int32(item.Quantity),
+		})
 	}
-	orders, err := h.Usecase.ListByUser(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	return &pb.OrderResponse{
+		Id:        int64(order.ID),
+		UserId:    int64(order.UserID),
+		Status:    order.Status,
+		CreatedAt: order.CreatedAt.Format(time.RFC3339),
+		Items:     items,
 	}
-	c.JSON(http.StatusOK, orders)
+
 }

@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "api-gateway/pb/order;order";
+
+
+message OrderItem {
+  int64 product_id = 1;
+  int32 quantity = 2;
+}
+
+message OrderRequest {
+  int64 user_id = 1;
+  repeated OrderItem items = 2;
+}
+
+message OrderResponse {
+  int64 id = 1;
+  int64 user_id = 2;
+  string status = 3;
+  string created_at = 4;
+  repeated OrderItem items = 5;
+}
+
+message OrderID {
+  int64 id = 1;
+}
+
+message OrderList {
+  repeated OrderResponse orders = 1;
+}
+
+message StatusUpdate {
+  int64 id = 1;
+  string status = 2;
+}
+
+message UserOrdersRequest {
+  int64 user_id = 1;
+}
+
+service OrderService {
+  rpc CreateOrder(OrderRequest) returns (OrderResponse);
+  rpc GetOrder(OrderID) returns (OrderResponse);
+  rpc UpdateOrderStatus(StatusUpdate) returns (OrderResponse);
+  rpc ListOrders(UserOrdersRequest) returns (OrderList);
+}

@@ -2,23 +2,37 @@ package main
 
 import (
 	"log"
+	"net"
 
 	"user-service/infrastructure"
 	"user-service/internal/handler"
 
-	"github.com/gin-gonic/gin"
+	pb "user-service/pb/user" // ✅ Adjust this to match your module name
+
+	"google.golang.org/grpc"
 )
 
 func main() {
+	// Connect to DB
 	db := infrastructure.NewPostgres()
 
-	r := gin.Default()
+	// Create a gRPC server
+	grpcServer := grpc.NewServer()
 
-	// Routes
-	handler.RegisterRoutes(r, db)
+	// Create handler that implements pb.UserServiceServer
+	userHandler := handler.NewUserHandler(db)
 
-	log.Println("✅ User service running on port 8083")
-	if err := r.Run(":8083"); err != nil {
-		log.Fatal("❌ Failed to start server:", err)
+	// Register the handler with gRPC
+	pb.RegisterUserServiceServer(grpcServer, userHandler)
+
+	// Start listening
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+
+	log.Println("✅ User gRPC server running on port 50051")
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve gRPC server: %v", err)
 	}
 }

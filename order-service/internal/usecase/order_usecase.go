@@ -6,7 +6,7 @@ type OrderRepo interface {
 	Create(order *model.Order) error
 	GetByID(id int) (*model.Order, error)
 	UpdateStatus(id int, status string) error
-	ListByUser(userID string) ([]model.Order, error)
+	ListByUser(userID int) ([]model.Order, error)
 	ListAll() ([]model.Order, error)
 }
 
@@ -30,6 +30,6 @@ func (u *OrderUsecase) UpdateStatus(id int, status string) error {
 	return u.Repo.UpdateStatus(id, status)
 }
 
-func (u *OrderUsecase) ListByUser(userID string) ([]model.Order, error) {
+func (u *OrderUsecase) ListByUser(userID int) ([]model.Order, error) {
 	return u.Repo.ListByUser(userID)
 }

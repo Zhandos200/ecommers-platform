@@ -1,82 +1,104 @@
 package handler
 
 import (
-	"net/http"
-	"strconv"
-
+	"context"
 	"inventory-service/internal/model"
 	"inventory-service/internal/usecase"
+	pb "inventory-service/pb/inventory"
 
-	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ProductHandler struct {
+	pb.UnimplementedInventoryServiceServer
 	Usecase *usecase.ProductUsecase
 }
 
-func (h *ProductHandler) RegisterRoutes(r *gin.Engine) {
-	r.POST("/products", h.Create)
-	r.GET("/products/:id", h.GetByID)
-	r.PATCH("/products/:id", h.Update)
-	r.DELETE("/products/:id", h.Delete)
-	r.GET("/products", h.List)
-}
-
-func (h *ProductHandler) Create(c *gin.Context) {
-	var p model.Product
-	if err := c.ShouldBindJSON(&p); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+func (h *ProductHandler) CreateProduct(ctx context.Context, req *pb.Product) (*pb.Product, error) {
+	product := model.Product{
+		Name:     req.Name,
+		Category: req.Category,
+		Stock:    int(req.Stock),
+		Price:    req.Price,
 	}
-	if err := h.Usecase.Create(&p); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusCreated)
-}
 
-func (h *ProductHandler) GetByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	p, err := h.Usecase.GetByID(id)
+	err := h.Usecase.Create(&product)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-		return
+		return nil, status.Errorf(codes.Internal, "failed to create product: %v", err)
 	}
-	c.JSON(http.StatusOK, p)
+
+	return &pb.Product{
+		Id:       int64(product.ID),
+		Name:     product.Name,
+		Category: product.Category,
+		Stock:    int32(product.Stock),
+		Price:    product.Price,
+	}, nil
 }
 
-func (h *ProductHandler) Update(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	var p model.Product
-	if err := c.ShouldBindJSON(&p); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if err := h.Usecase.Update(id, &p); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusOK)
-}
-
-func (h *ProductHandler) Delete(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	if err := h.Usecase.Delete(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *ProductHandler) List(c *gin.Context) {
-	category := c.Query("category")
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
-	products, err := h.Usecase.List(category, limit, offset)
+func (h *ProductHandler) GetProduct(ctx context.Context, req *pb.ProductID) (*pb.Product, error) {
+	product, err := h.Usecase.GetByID(int(req.Id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, status.Errorf(codes.NotFound, "product not found")
 	}
-	c.JSON(http.StatusOK, products)
+
+	return &pb.Product{
+		Id:       int64(product.ID),
+		Name:     product.Name,
+		Category: product.Category,
+		Stock:    int32(product.Stock),
+		Price:    product.Price,
+	}, nil
+}
+
+func (h *ProductHandler) UpdateProduct(ctx context.Context, req *pb.Product) (*pb.Product, error) {
+	product := model.Product{
+		ID:       int(req.Id),
+		Name:     req.Name,
+		Category: req.Category,
+		Stock:    int(req.Stock),
+		Price:    req.Price,
+	}
+
+	err := h.Usecase.Update(product.ID, &product) // ✅ fixed
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update product: %v", err)
+	}
+
+	return &pb.Product{
+		Id:       int64(product.ID),
+		Name:     product.Name,
+		Category: product.Category,
+		Stock:    int32(product.Stock),
+		Price:    product.Price,
+	}, nil
+}
+
+func (h *ProductHandler) DeleteProduct(ctx context.Context, req *pb.ProductID) (*pb.Empty, error) {
+	err := h.Usecase.Delete(int(req.Id))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete product: %v", err)
+	}
+	return &pb.Empty{}, nil
+}
+
+func (h *ProductHandler) ListProducts(ctx context.Context, _ *pb.Empty) (*pb.ProductList, error) {
+	products, err := h.Usecase.List("", 100, 0) // or implement filtering later
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list products: %v", err)
+	}
+
+	var protoProducts []*pb.Product
+	for _, p := range products {
+		protoProducts = append(protoProducts, &pb.Product{
+			Id:       int64(p.ID),
+			Name:     p.Name,
+			Category: p.Category,
+			Stock:    int32(p.Stock),
+			Price:    p.Price,
+		})
+	}
+
+	return &pb.ProductList{Products: protoProducts}, nil
 }

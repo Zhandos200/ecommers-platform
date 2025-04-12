@@ -1,64 +1,77 @@
 package handler
 
 import (
-	"net/http"
-	"strconv"
+	"context"
 	"user-service/internal/model"
 	"user-service/internal/repository"
 	"user-service/internal/usecase"
 
-	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	pb "user-service/pb/user" // Adjust this path to match your actual proto module
 )
 
-var userUsecase usecase.UserUsecase
+type UserHandler struct {
+	pb.UnimplementedUserServiceServer
+	usecase usecase.UserUsecase
+}
 
-func RegisterRoutes(r *gin.Engine, db *sqlx.DB) {
+func NewUserHandler(db *sqlx.DB) *UserHandler {
 	repo := repository.NewUserRepository(db)
-	userUsecase = usecase.NewUserUsecase(repo)
-
-	r.POST("/register", registerUser)
-	r.POST("/login", loginUser)
-	r.GET("/profile/:id", getUserProfile)
+	uc := usecase.NewUserUsecase(repo)
+	return &UserHandler{usecase: uc}
 }
 
-func registerUser(c *gin.Context) {
-	var user model.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		return
+func (h *UserHandler) RegisterUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
+	user := model.User{
+		Email:    req.Email,
+		Name:     req.Name,
+		Password: req.Password,
 	}
-	if err := userUsecase.Register(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+
+	err := h.usecase.Register(user)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to register user: %v", err)
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered"})
+
+	return &pb.UserResponse{
+		Id:    int64(user.ID),
+		Email: user.Email,
+		Name:  user.Name,
+	}, nil
 }
 
-func loginUser(c *gin.Context) {
-	var login model.User
-	if err := c.ShouldBindJSON(&login); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		return
-	}
-	user, err := userUsecase.Login(login.Email, login.Password)
+func (h *UserHandler) AuthenticateUser(ctx context.Context, req *pb.AuthRequest) (*pb.AuthResponse, error) {
+	user, err := h.usecase.Login(req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
+		return &pb.AuthResponse{
+			Success: false,
+			Message: "Invalid credentials",
+		}, status.Errorf(codes.Unauthenticated, "authentication failed")
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user})
+
+	return &pb.AuthResponse{
+		Success: true,
+		Message: "Login successful",
+		User: &pb.UserResponse{
+			Id:    int64(user.ID),
+			Email: user.Email,
+			Name:  user.Name,
+		},
+	}, nil
 }
 
-func getUserProfile(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *UserHandler) GetUserProfile(ctx context.Context, req *pb.UserID) (*pb.UserProfile, error) {
+	user, err := h.usecase.GetProfile(int(req.Id))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
+		return nil, status.Errorf(codes.NotFound, "user not found")
 	}
-	user, err := userUsecase.GetProfile(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-	c.JSON(http.StatusOK, user)
+
+	return &pb.UserProfile{
+		Id:    int64(user.ID),
+		Email: user.Email,
+		Name:  user.Name,
+	}, nil
 }

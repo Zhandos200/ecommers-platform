@@ -6,7 +6,15 @@
   <ul>
     <li><a href="/products">View Products</a></li>
     <li><a href="/orders">View Orders</a></li>
-    <li><a href="/users/1">View User Profile (User #1)</a></li>
+    <li>
+      <form action="/users" method="GET">
+        <label>View User by ID:</label>
+        <input type="number" name="id" placeholder="Enter ID" required>
+        <button type="submit">Go</button>
+      </form>
+    </li>    
+    <li><a href="/users/register">Register</a></li>
+    <li><a href="/users/login">Login</a></li>
   </ul>
 </body>
 </html>

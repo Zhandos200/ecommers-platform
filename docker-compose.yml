@@ -13,8 +13,10 @@ services:
       DB_NAME: inventory
     ports:
       - "8081:8081"
+      - "50053:50053"
     volumes:
-      - ./inventory-service/.env:/app/.env   # ✅ This is correct
+      - ./inventory-service/.env:/app/.env   
+      - ./templates:/app/templates
     networks:
       - micro_net
 
@@ -30,6 +32,7 @@ services:
       DB_NAME: users
     ports:
       - "8083:8083"
+      - "50051:50051"
     networks:
       - micro_net
 
@@ -45,6 +48,7 @@ services:
       DB_NAME: orders
     ports:
       - "8082:8082"
+      - "50052:50052"
     networks:
       - micro_net
 
