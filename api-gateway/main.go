@@ -2,6 +2,7 @@ package main
 
 import (
 	"api-gateway/middleware"
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -111,6 +112,54 @@ func main() {
 		c.HTML(200, "orders.html", gin.H{"Orders": orders})
 	})
 
+	r.POST("/orders", func(c *gin.Context) {
+		var input struct {
+			UserID string `json:"user_id"`
+			Items  []struct {
+				ProductID int `json:"product_id"`
+				Quantity  int `json:"quantity"`
+			} `json:"items"`
+		}
+
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order format"})
+			return
+		}
+
+		userIDInt, err := strconv.ParseInt(input.UserID, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var items []*pbOrder.OrderItem
+		for _, item := range input.Items {
+			items = append(items, &pbOrder.OrderItem{
+				ProductId: int64(item.ProductID),
+				Quantity:  int32(item.Quantity),
+			})
+		}
+
+		req := &pbOrder.OrderRequest{
+			UserId: userIDInt,
+			Items:  items,
+		}
+
+		res, err := orderClient.CreateOrder(context.Background(), req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"id":         res.Id,
+			"user_id":    res.UserId,
+			"status":     res.Status,
+			"created_at": res.CreatedAt,
+			"items":      res.Items,
+		})
+	})
+
 	r.GET("/users", func(c *gin.Context) {
 		id := c.Query("id")
 		if id == "" {
@@ -136,20 +185,33 @@ func main() {
 	})
 
 	r.POST("/users/register", func(c *gin.Context) {
-		email := c.PostForm("email")
-		name := c.PostForm("name")
-		password := c.PostForm("password")
-
-		_, err := userClient.RegisterUser(c, &pbUser.UserRequest{
-			Email:    email,
-			Name:     name,
-			Password: password,
-		})
-		if err != nil {
-			c.String(500, "Failed to register user: %v", err)
+		var input struct {
+			Name     string `json:"name"`
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBind(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
-		c.Redirect(302, "/")
+
+		req := &pbUser.UserRequest{
+			Name:     input.Name,
+			Email:    input.Email,
+			Password: input.Password,
+		}
+
+		res, err := userClient.RegisterUser(context.Background(), req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"id":    res.Id,
+			"name":  res.Name,
+			"email": res.Email,
+		})
 	})
 
 	r.GET("/users/login", func(c *gin.Context) {
@@ -169,6 +231,38 @@ func main() {
 			return
 		}
 		c.Redirect(302, "/")
+	})
+
+	r.POST("/products", func(c *gin.Context) {
+		var req Product
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product data"})
+			return
+		}
+
+		grpcReq := &pbInventory.Product{
+			Name:     req.Name,
+			Category: req.Category,
+			Stock:    int32(req.Stock),
+			Price:    float32(req.Price),
+		}
+
+		grpcRes, err := inventoryClient.CreateProduct(context.Background(), grpcReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product", "details": err.Error()})
+			return
+		}
+
+		// Convert gRPC response back to REST format
+		response := Product{
+			ID:       int(grpcRes.Id),
+			Name:     grpcRes.Name,
+			Category: grpcRes.Category,
+			Stock:    int(grpcRes.Stock),
+			Price:    float64(grpcRes.Price),
+		}
+
+		c.JSON(http.StatusCreated, response)
 	})
 
 	r.Run(":8080")

@@ -4,7 +4,7 @@ import "time"
 
 type Order struct {
 	ID        int         `db:"id" json:"id"`
-	UserID    int         `db:"user_id" json:"user_id"` // ✅ change from string to int
+	UserID    int         `db:"user_id" json:"user_id"`
 	Status    string      `db:"status" json:"status"`
 	CreatedAt time.Time   `db:"created_at" json:"created_at"`
 	Items     []OrderItem `json:"items"`
