@@ -26,7 +26,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterInventoryServiceServer(grpcServer, productHandler)
 
-	log.Println("✅ Inventory gRPC service running on :50053")
+	log.Println("Inventory gRPC service running on :50053")
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

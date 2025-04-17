@@ -21,12 +21,12 @@ func NewPostgres() *sqlx.DB {
 		" dbname=" + os.Getenv("DB_NAME") +
 		" sslmode=disable"
 
-	log.Println("📦 Connecting with DSN:", dsn) // Temporary log for debugging
+	log.Println("Connecting with DSN:", dsn) // Temporary log for debugging
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		log.Fatalln("❌ DB Connection error:", err)
+		log.Fatalln("DB Connection error:", err)
 	}
-	log.Println("✅ Successfully connected to PostgreSQL")
+	log.Println("Successfully connected to PostgreSQL")
 	return db
 }

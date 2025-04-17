@@ -61,7 +61,7 @@ func (h *ProductHandler) UpdateProduct(ctx context.Context, req *pb.Product) (*p
 		Price:    req.Price,
 	}
 
-	err := h.Usecase.Update(product.ID, &product) // ✅ fixed
+	err := h.Usecase.Update(product.ID, &product)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update product: %v", err)
 	}

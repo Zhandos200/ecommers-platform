@@ -34,7 +34,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 	pb.RegisterOrderServiceServer(grpcServer, orderHandler)
 
-	log.Println("✅ Order gRPC service running on :50052")
+	log.Println("Order gRPC service running on :50052")
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve gRPC server: %v", err)
 	}
