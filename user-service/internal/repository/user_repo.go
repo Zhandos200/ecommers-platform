@@ -7,9 +7,11 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(user model.User) error
+	CreateUser(user *model.User) error
 	GetUserByEmail(email string) (model.User, error)
 	GetUserByID(id int) (model.User, error)
+	UpdateUser(user model.User) error
+	DeleteUser(id int) error
 }
 
 type userRepo struct {
@@ -20,9 +22,11 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 	return &userRepo{db: db}
 }
 
-func (r *userRepo) CreateUser(user model.User) error {
-	_, err := r.db.Exec(`INSERT INTO users (email, password, name) VALUES ($1, $2, $3)`, user.Email, user.Password, user.Name)
-	return err
+func (r *userRepo) CreateUser(user *model.User) error {
+	return r.db.QueryRowx(
+		`INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id`,
+		user.Email, user.Password, user.Name,
+	).Scan(&user.ID)
 }
 
 func (r *userRepo) GetUserByEmail(email string) (model.User, error) {
@@ -35,4 +39,14 @@ func (r *userRepo) GetUserByID(id int) (model.User, error) {
 	var user model.User
 	err := r.db.Get(&user, `SELECT id, email, name FROM users WHERE id=$1`, id)
 	return user, err
+}
+
+func (r *userRepo) UpdateUser(user model.User) error {
+	_, err := r.db.Exec(`UPDATE users SET name=$1, email=$2 WHERE id=$3`, user.Name, user.Email, user.ID)
+	return err
+}
+
+func (r *userRepo) DeleteUser(id int) error {
+	_, err := r.db.Exec(`DELETE FROM users WHERE id=$1`, id)
+	return err
 }

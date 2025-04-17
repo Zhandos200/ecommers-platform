@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	pb "user-service/pb/user" // Adjust this path to match your actual proto module
 )
@@ -25,14 +26,13 @@ func NewUserHandler(db *sqlx.DB) *UserHandler {
 }
 
 func (h *UserHandler) RegisterUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
-	user := model.User{
+	user := &model.User{
 		Email:    req.Email,
 		Name:     req.Name,
 		Password: req.Password,
 	}
 
-	err := h.usecase.Register(user)
-	if err != nil {
+	if err := h.usecase.Register(user); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to register user: %v", err)
 	}
 
@@ -74,4 +74,30 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *pb.UserID) (*pb.U
 		Email: user.Email,
 		Name:  user.Name,
 	}, nil
+}
+
+func (h *UserHandler) UpdateUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
+	user := model.User{
+		ID:       int(req.Id),
+		Email:    req.Email,
+		Name:     req.Name,
+		Password: req.Password, // optional: ignore if not updating password
+	}
+
+	if err := h.usecase.UpdateUser(user); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update user: %v", err)
+	}
+
+	return &pb.UserResponse{
+		Id:    int64(user.ID),
+		Email: user.Email,
+		Name:  user.Name,
+	}, nil
+}
+
+func (h *UserHandler) DeleteUser(ctx context.Context, req *pb.UserID) (*emptypb.Empty, error) {
+	if err := h.usecase.DeleteUser(int(req.Id)); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete user: %v", err)
+	}
+	return &emptypb.Empty{}, nil
 }

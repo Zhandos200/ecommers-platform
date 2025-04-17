@@ -8,9 +8,11 @@ import (
 )
 
 type UserUsecase interface {
-	Register(user model.User) error
+	Register(user *model.User) error
 	Login(email, password string) (model.User, error)
 	GetProfile(id int) (model.User, error)
+	UpdateUser(user model.User) error
+	DeleteUser(id int) error
 }
 
 type userUsecase struct {
@@ -21,7 +23,7 @@ func NewUserUsecase(repo repository.UserRepository) UserUsecase {
 	return &userUsecase{repo: repo}
 }
 
-func (u *userUsecase) Register(user model.User) error {
+func (u *userUsecase) Register(user *model.User) error {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
 		return err
@@ -43,4 +45,12 @@ func (u *userUsecase) Login(email, password string) (model.User, error) {
 
 func (u *userUsecase) GetProfile(id int) (model.User, error) {
 	return u.repo.GetUserByID(id)
+}
+
+func (u *userUsecase) UpdateUser(user model.User) error {
+	return u.repo.UpdateUser(user)
+}
+
+func (u *userUsecase) DeleteUser(id int) error {
+	return u.repo.DeleteUser(id)
 }

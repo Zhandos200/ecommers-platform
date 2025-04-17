@@ -265,5 +265,60 @@ func main() {
 		c.JSON(http.StatusCreated, response)
 	})
 
+	r.PATCH("/users/:id", func(c *gin.Context) {
+		var input struct {
+			Email    string `json:"email"`
+			Name     string `json:"name"`
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid input"})
+			return
+		}
+
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		req := &pbUser.UserRequest{
+			Id:       int64(id),
+			Email:    input.Email,
+			Name:     input.Name,
+			Password: input.Password,
+		}
+
+		res, err := userClient.UpdateUser(context.Background(), req)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update user", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"id":    res.Id,
+			"email": res.Email,
+			"name":  res.Name,
+		})
+	})
+
+	r.DELETE("/users/:id", func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		_, err = userClient.DeleteUser(context.Background(), &pbUser.UserID{Id: int64(id)})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete user", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "User deleted"})
+	})
+
 	r.Run(":8080")
 }

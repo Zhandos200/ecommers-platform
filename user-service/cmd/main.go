@@ -7,7 +7,7 @@ import (
 	"user-service/infrastructure"
 	"user-service/internal/handler"
 
-	pb "user-service/pb/user" // ✅ Adjust this to match your module name
+	pb "user-service/pb/user"
 
 	"google.golang.org/grpc"
 )
@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	log.Println("✅ User gRPC server running on port 50051")
+	log.Println("User gRPC server running on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve gRPC server: %v", err)
 	}
