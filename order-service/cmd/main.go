@@ -10,6 +10,8 @@ import (
 	pbInventory "order-service/pb/inventory"
 	pb "order-service/pb/order"
 
+	"order-service/internal/nats"
+
 	"google.golang.org/grpc"
 )
 
@@ -24,12 +26,14 @@ func main() {
 		log.Fatalf("Could not connect to Inventory Service: %v", err)
 	}
 
+	natsPublisher := nats.NewNatsPublisher("nats://nats:4222")
+
 	inventoryClient := pbInventory.NewInventoryServiceClient(conn)
 
 	database := db.NewPostgres()
 	orderRepo := &repository.OrderRepository{DB: database}
 	orderUsecase := &usecase.OrderUsecase{Repo: orderRepo}
-	orderHandler := handler.NewOrderHandler(orderUsecase, inventoryClient)
+	orderHandler := handler.NewOrderHandler(orderUsecase, inventoryClient, natsPublisher)
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterOrderServiceServer(grpcServer, orderHandler)

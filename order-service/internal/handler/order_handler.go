@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"order-service/internal/model"
+	"order-service/internal/nats"
 	"order-service/internal/usecase"
 
 	pbInventory "order-service/pb/inventory"
@@ -18,13 +19,15 @@ type OrderHandler struct {
 	pb.UnimplementedOrderServiceServer
 	usecase         *usecase.OrderUsecase
 	inventoryClient pbInventory.InventoryServiceClient
+	natsPublisher   *nats.NatsPublisher
 }
 
 // handler/order_handler.go
-func NewOrderHandler(uc *usecase.OrderUsecase, inventoryClient pbInventory.InventoryServiceClient) *OrderHandler {
+func NewOrderHandler(uc *usecase.OrderUsecase, inventoryClient pbInventory.InventoryServiceClient, natsPublisher *nats.NatsPublisher) *OrderHandler {
 	return &OrderHandler{
 		usecase:         uc,
 		inventoryClient: inventoryClient,
+		natsPublisher:   natsPublisher,
 	}
 }
 
@@ -70,8 +73,9 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.OrderRequest) (*
 	if err := h.usecase.Create(&order); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create order: %v", err)
 	}
+	_ = h.natsPublisher.PublishOrderCreated("order.created", order)
 
-	// Convert to gRPC response
+	//Publish event after saving to DB
 	return convertToOrderResponse(&order), nil
 }
 

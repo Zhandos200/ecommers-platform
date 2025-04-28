@@ -1,6 +1,15 @@
 version: "3.9"
 
 services:
+  nats:
+    image: nats:latest
+    container_name: nats
+    ports:
+      - "4222:4222"
+      - "8222:8222" # Monitoring port
+    networks:
+      - micro_net
+
   inventory-service:
     build:
       context: ./inventory-service
@@ -13,9 +22,9 @@ services:
       DB_NAME: inventory
     ports:
       - "8081:8081"
-      - "50053:50053"
+      - "50053:50053" # gRPC
     volumes:
-      - ./inventory-service/.env:/app/.env   
+      - ./inventory-service/.env:/app/.env
       - ./templates:/app/templates
     networks:
       - micro_net
@@ -32,7 +41,7 @@ services:
       DB_NAME: users
     ports:
       - "8083:8083"
-      - "50051:50051"
+      - "50051:50051" # gRPC
     networks:
       - micro_net
 
@@ -46,9 +55,25 @@ services:
       DB_USER: postgres
       DB_PASSWORD: assbreaker2023
       DB_NAME: orders
+      NATS_URL: nats://nats:4222 # point to NATS container
     ports:
       - "8082:8082"
-      - "50052:50052"
+      - "50052:50052" # gRPC
+    depends_on:
+      - nats
+    restart: always
+    networks:
+      - micro_net
+
+  consumer-service:
+    build:
+      context: ./consumer-service
+    container_name: consumer-service
+    environment:
+      NATS_URL: nats://nats:4222
+    depends_on:
+      - nats
+      - inventory-service
     networks:
       - micro_net
 
