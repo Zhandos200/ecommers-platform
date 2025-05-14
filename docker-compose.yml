@@ -9,6 +9,13 @@ services:
       - "8222:8222" # Monitoring port
     networks:
       - micro_net
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - micro_net
 
   inventory-service:
     build:

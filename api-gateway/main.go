@@ -1,11 +1,14 @@
 package main
 
 import (
+	"api-gateway/cache"
 	"api-gateway/middleware"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	pbInventory "api-gateway/pb/inventory"
 	pbOrder "api-gateway/pb/order"
@@ -43,6 +46,8 @@ type User struct {
 }
 
 func main() {
+	redisClient := cache.NewRedisClient()
+
 	r := gin.Default()
 	r.LoadHTMLGlob("templates/*")
 	r.Use(middleware.RequestLogger())
@@ -69,7 +74,6 @@ func main() {
 			c.String(500, "Error loading products: %v", err)
 			return
 		}
-
 		var products []Product
 		for _, p := range res.Products {
 			products = append(products, Product{
@@ -80,8 +84,37 @@ func main() {
 				Price:    float64(p.Price),
 			})
 		}
-
 		c.HTML(200, "products.html", gin.H{"Products": products})
+	})
+
+	r.POST("/products", func(c *gin.Context) {
+		var req Product
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product data"})
+			return
+		}
+
+		grpcReq := &pbInventory.Product{
+			Name:     req.Name,
+			Category: req.Category,
+			Stock:    int32(req.Stock),
+			Price:    float32(req.Price),
+		}
+
+		grpcRes, err := inventoryClient.CreateProduct(context.Background(), grpcReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product", "details": err.Error()})
+			return
+		}
+
+		response := Product{
+			ID:       int(grpcRes.Id),
+			Name:     grpcRes.Name,
+			Category: grpcRes.Category,
+			Stock:    int(grpcRes.Stock),
+			Price:    float64(grpcRes.Price),
+		}
+		c.JSON(http.StatusCreated, response)
 	})
 
 	r.GET("/orders", func(c *gin.Context) {
@@ -90,7 +123,6 @@ func main() {
 			c.String(500, "Error loading orders: %v", err)
 			return
 		}
-
 		var orders []Order
 		for _, o := range res.Orders {
 			var items []OrderItem
@@ -108,7 +140,6 @@ func main() {
 				Items:     items,
 			})
 		}
-
 		c.HTML(200, "orders.html", gin.H{"Orders": orders})
 	})
 
@@ -171,13 +202,48 @@ func main() {
 
 	r.GET("/users/:id", func(c *gin.Context) {
 		id := c.Param("id")
+		cacheKey := "user:" + id
+		fmt.Println("Looking for key in Redis:", cacheKey)
+
+		// Try to get user from Redis
+		cached, err := cache.GetCache(redisClient, cacheKey)
+		if err == nil {
+			fmt.Println("Cache HIT for:", cacheKey)
+			var user User
+			if err := json.Unmarshal([]byte(cached), &user); err == nil {
+				fmt.Println("Unmarshalled cached user:", user)
+				c.HTML(200, "users.html", gin.H{"User": user})
+				return
+			} else {
+				fmt.Println("Failed to unmarshal cached user:", err)
+			}
+		} else {
+			fmt.Println("Cache MISS for:", cacheKey, "→", err)
+		}
+
+		// If not in cache, call gRPC
+		fmt.Println("📡 Fetching user from gRPC service...")
 		u64, _ := strconv.ParseInt(id, 10, 64)
 		res, err := userClient.GetUserProfile(c, &pbUser.UserID{Id: u64})
 		if err != nil {
+			fmt.Printf("gRPC error for user %s: %v\n", id, err)
 			c.String(500, "Error loading user: %v", err)
 			return
 		}
-		c.HTML(200, "users.html", gin.H{"User": User{ID: int(res.Id), Email: res.Email, Name: res.Name}})
+
+		user := User{ID: int(res.Id), Email: res.Email, Name: res.Name}
+		fmt.Println("gRPC returned user:", user)
+
+		// Marshal and store in Redis
+		userJson, _ := json.Marshal(user)
+		err = cache.SetCache(redisClient, cacheKey, string(userJson), 5*time.Minute)
+		if err != nil {
+			fmt.Println("Failed to set cache:", err)
+		} else {
+			fmt.Println("📝 Cached user to Redis with key:", cacheKey)
+		}
+
+		c.HTML(200, "users.html", gin.H{"User": user})
 	})
 
 	r.GET("/users/register", func(c *gin.Context) {
@@ -233,38 +299,6 @@ func main() {
 		c.Redirect(302, "/")
 	})
 
-	r.POST("/products", func(c *gin.Context) {
-		var req Product
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product data"})
-			return
-		}
-
-		grpcReq := &pbInventory.Product{
-			Name:     req.Name,
-			Category: req.Category,
-			Stock:    int32(req.Stock),
-			Price:    float32(req.Price),
-		}
-
-		grpcRes, err := inventoryClient.CreateProduct(context.Background(), grpcReq)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product", "details": err.Error()})
-			return
-		}
-
-		// Convert gRPC response back to REST format
-		response := Product{
-			ID:       int(grpcRes.Id),
-			Name:     grpcRes.Name,
-			Category: grpcRes.Category,
-			Stock:    int(grpcRes.Stock),
-			Price:    float64(grpcRes.Price),
-		}
-
-		c.JSON(http.StatusCreated, response)
-	})
-
 	r.PATCH("/users/:id", func(c *gin.Context) {
 		var input struct {
 			Email    string `json:"email"`
@@ -296,6 +330,9 @@ func main() {
 			return
 		}
 
+		// Invalidate cache
+		cache.DeleteCache(redisClient, "user:"+idParam)
+
 		c.JSON(200, gin.H{
 			"id":    res.Id,
 			"email": res.Email,
@@ -316,6 +353,9 @@ func main() {
 			c.JSON(500, gin.H{"error": "Failed to delete user", "details": err.Error()})
 			return
 		}
+
+		// Invalidate cache
+		cache.DeleteCache(redisClient, "user:"+idParam)
 
 		c.JSON(200, gin.H{"message": "User deleted"})
 	})

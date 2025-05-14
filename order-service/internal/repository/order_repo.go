@@ -4,6 +4,8 @@ import (
 	"order-service/internal/model"
 	"time"
 
+	"fmt"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -14,24 +16,37 @@ type OrderRepository struct {
 func (r *OrderRepository) Create(order *model.Order) error {
 	tx := r.DB.MustBegin()
 	now := time.Now()
+
+	fmt.Println("🚀 Starting transaction to insert order and items...")
+
 	err := tx.QueryRowx(
 		"INSERT INTO orders (user_id, status, created_at) VALUES ($1, $2, $3) RETURNING id",
 		order.UserID, order.Status, now).Scan(&order.ID)
 	if err != nil {
 		tx.Rollback()
+		fmt.Println("❌ Failed to insert order. Rolling back:", err)
 		return err
 	}
+	fmt.Println("✅ Order inserted with ID:", order.ID)
 
 	for _, item := range order.Items {
 		_, err := tx.Exec("INSERT INTO order_items (order_id, product_id, quantity) VALUES ($1, $2, $3)",
 			order.ID, item.ProductID, item.Quantity)
 		if err != nil {
 			tx.Rollback()
+			fmt.Println("❌ Failed to insert order item. Rolling back:", err)
 			return err
 		}
+		fmt.Printf("✅ Inserted item: ProductID=%d, Quantity=%d\n", item.ProductID, item.Quantity)
 	}
 
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println("❌ Failed to commit transaction:", err)
+		return err
+	}
+
+	fmt.Println("🎉 Transaction committed successfully.")
 	return nil
 }
 
