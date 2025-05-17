@@ -117,6 +117,77 @@ func main() {
 		c.JSON(http.StatusCreated, response)
 	})
 
+	r.GET("/products/:id", func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid product ID"})
+			return
+		}
+
+		res, err := inventoryClient.GetProduct(context.Background(), &pbInventory.ProductID{Id: int64(id)})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to get product", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, Product{
+			ID:       int(res.Id),
+			Name:     res.Name,
+			Category: res.Category,
+			Stock:    int(res.Stock),
+			Price:    float64(res.Price),
+		})
+	})
+
+	r.PUT("/products/:id", func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid product ID"})
+			return
+		}
+
+		var input Product
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid product data"})
+			return
+		}
+
+		req := &pbInventory.Product{
+			Id:       int64(id),
+			Name:     input.Name,
+			Category: input.Category,
+			Stock:    int32(input.Stock),
+			Price:    float32(input.Price),
+		}
+
+		_, err = inventoryClient.UpdateProduct(context.Background(), req)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update product", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Product updated"})
+	})
+
+	r.DELETE("/products/:id", func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid product ID"})
+			return
+		}
+
+		_, err = inventoryClient.DeleteProduct(context.Background(), &pbInventory.ProductID{Id: int64(id)})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete product", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Product deleted"})
+	})
+
 	r.GET("/orders", func(c *gin.Context) {
 		res, err := orderClient.ListOrders(c, &pbOrder.UserOrdersRequest{})
 		if err != nil {
@@ -189,6 +260,65 @@ func main() {
 			"created_at": res.CreatedAt,
 			"items":      res.Items,
 		})
+	})
+
+	r.GET("/orders/:id", func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid order ID"})
+			return
+		}
+
+		res, err := orderClient.GetOrder(context.Background(), &pbOrder.OrderID{Id: int64(id)})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to get order", "details": err.Error()})
+			return
+		}
+
+		var items []OrderItem
+		for _, item := range res.Items {
+			items = append(items, OrderItem{
+				ProductID: int(item.ProductId),
+				Quantity:  int(item.Quantity),
+			})
+		}
+
+		c.JSON(200, Order{
+			ID:        int(res.Id),
+			UserID:    fmt.Sprint(res.UserId),
+			Status:    res.Status,
+			CreatedAt: res.CreatedAt,
+			Items:     items,
+		})
+	})
+
+	r.PATCH("/orders/:id/status", func(c *gin.Context) {
+		var input struct {
+			Status string `json:"status"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil || input.Status == "" {
+			c.JSON(400, gin.H{"error": "Missing or invalid status"})
+			return
+		}
+
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid order ID"})
+			return
+		}
+
+		_, err = orderClient.UpdateOrderStatus(context.Background(), &pbOrder.StatusUpdate{
+			Id:     int64(id),
+			Status: input.Status,
+		})
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update order status", "details": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Order status updated"})
 	})
 
 	r.GET("/users", func(c *gin.Context) {

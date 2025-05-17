@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   nats:
     image: nats:latest
@@ -16,6 +14,40 @@ services:
       - "6379:6379"
     networks:
       - micro_net
+  migrate-order:
+    image: migrate/migrate
+    volumes:
+      - ./order-service/migrations:/migrations
+    networks:
+      - micro_net
+    entrypoint: >
+      migrate
+      -path=/migrations
+      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/orders?sslmode=disable
+      up
+  migrate-user:
+    image: migrate/migrate
+    volumes:
+      - ./user-service/migrations:/migrations
+    networks:
+      - micro_net
+    entrypoint: >
+      migrate
+      -path=/migrations
+      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/users?sslmode=disable
+      up
+
+  migrate-inventory:
+    image: migrate/migrate
+    volumes:
+      - ./inventory-service/migrations:/migrations
+    networks:
+      - micro_net
+    entrypoint: >
+      migrate
+      -path=/migrations
+      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/inventory?sslmode=disable
+      up
 
   inventory-service:
     build:
