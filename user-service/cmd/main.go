@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
-
 	"user-service/infrastructure"
 	"user-service/internal/handler"
+	"user-service/logger"
 
 	pb "user-service/pb/user"
 
@@ -13,6 +14,8 @@ import (
 )
 
 func main() {
+	logger.InitLogger()
+	logger.Log.Info("🔄 User service started")
 	// Connect to DB
 	db := infrastructure.NewPostgres()
 
@@ -28,11 +31,11 @@ func main() {
 	// Start listening
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		logger.Log.Error(fmt.Sprintf("Failed to listen: %v", err))
 	}
 
 	log.Println("User gRPC server running on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve gRPC server: %v", err)
+		logger.Log.Error(fmt.Sprintf("Failed to serve gRPC server: %v", err))
 	}
 }

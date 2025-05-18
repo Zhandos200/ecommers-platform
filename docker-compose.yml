@@ -4,9 +4,10 @@ services:
     container_name: nats
     ports:
       - "4222:4222"
-      - "8222:8222" # Monitoring port
+      - "8222:8222"
     networks:
       - micro_net
+
   redis:
     image: redis:latest
     container_name: redis
@@ -14,6 +15,7 @@ services:
       - "6379:6379"
     networks:
       - micro_net
+
   migrate-order:
     image: migrate/migrate
     volumes:
@@ -23,8 +25,9 @@ services:
     entrypoint: >
       migrate
       -path=/migrations
-      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/orders?sslmode=disable
+      -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB_ORDERS}?sslmode=disable
       up
+
   migrate-user:
     image: migrate/migrate
     volumes:
@@ -34,7 +37,7 @@ services:
     entrypoint: >
       migrate
       -path=/migrations
-      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/users?sslmode=disable
+      -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB_USERS}?sslmode=disable
       up
 
   migrate-inventory:
@@ -46,7 +49,7 @@ services:
     entrypoint: >
       migrate
       -path=/migrations
-      -database=postgres://postgres:assbreaker2023@host.docker.internal:5432/inventory?sslmode=disable
+      -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB_INVENTORY}?sslmode=disable
       up
 
   inventory-service:
@@ -56,17 +59,18 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: assbreaker2023
-      DB_NAME: inventory
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB_INVENTORY}
     ports:
       - "8081:8081"
-      - "50053:50053" # gRPC
+      - "50053:50053"
     volumes:
       - ./inventory-service/.env:/app/.env
       - ./templates:/app/templates
     networks:
       - micro_net
+      - observability_net
 
   user-service:
     build:
@@ -75,14 +79,15 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: assbreaker2023
-      DB_NAME: users
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB_USERS}
     ports:
       - "8083:8083"
-      - "50051:50051" # gRPC
+      - "50051:50051"
     networks:
       - micro_net
+      - observability_net
 
   order-service:
     build:
@@ -91,18 +96,19 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: assbreaker2023
-      DB_NAME: orders
-      NATS_URL: nats://nats:4222 # point to NATS container
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB_ORDERS}
+      NATS_URL: nats://nats:4222
     ports:
       - "8082:8082"
-      - "50052:50052" # gRPC
+      - "50052:50052"
     depends_on:
       - nats
     restart: always
     networks:
       - micro_net
+      - observability_net
 
   consumer-service:
     build:
@@ -115,6 +121,7 @@ services:
       - inventory-service
     networks:
       - micro_net
+      - observability_net
 
   api-gateway:
     build:
@@ -128,7 +135,60 @@ services:
       - "8080:8080"
     networks:
       - micro_net
+      - observability_net
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - observability_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - observability_net
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - observability_net
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - type: bind
+        source: ./tempo.yaml
+        target: /etc/tempo.yaml
+    ports:
+      - "3200:3200"
+    networks:
+      - observability_net
+
+
+volumes:
+  grafana-storage:
 
 networks:
   micro_net:
+    driver: bridge
+  observability_net:
     driver: bridge

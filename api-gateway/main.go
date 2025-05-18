@@ -2,6 +2,7 @@ package main
 
 import (
 	"api-gateway/cache"
+	"api-gateway/logger"
 	"api-gateway/middleware"
 	"context"
 	"encoding/json"
@@ -46,6 +47,9 @@ type User struct {
 }
 
 func main() {
+	logger.InitLogger()
+	logger.Log.Info("🚀 API Gateway started")
+
 	redisClient := cache.NewRedisClient()
 
 	r := gin.Default()
