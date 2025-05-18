@@ -11,12 +11,19 @@ import (
 	pbInventory "order-service/pb/inventory"
 	pb "order-service/pb/order"
 
+	"net/http"
 	"order-service/internal/nats"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
+	}()
+
 	logger.InitLogger()
 	logger.Log.Info("🔄 Order service started")
 

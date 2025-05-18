@@ -4,16 +4,22 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"user-service/infrastructure"
 	"user-service/internal/handler"
 	"user-service/logger"
-
 	pb "user-service/pb/user"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
+	}()
+
 	logger.InitLogger()
 	logger.Log.Info("🔄 User service started")
 	// Connect to DB

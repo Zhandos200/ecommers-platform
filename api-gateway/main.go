@@ -16,6 +16,7 @@ import (
 	pbUser "api-gateway/pb/user"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
 
@@ -47,6 +48,11 @@ type User struct {
 }
 
 func main() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
+	}()
+
 	logger.InitLogger()
 	logger.Log.Info("🚀 API Gateway started")
 

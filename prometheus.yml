@@ -2,6 +2,18 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'prometheus'
+  - job_name: 'api-gateway'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['api-gateway:2112']
+
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:2112']
+
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['order-service:2112']
+
+  - job_name: 'inventory-service'
+    static_configs:
+      - targets: ['inventory-service:2112']

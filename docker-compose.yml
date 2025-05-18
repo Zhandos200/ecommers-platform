@@ -65,6 +65,7 @@ services:
     ports:
       - "8081:8081"
       - "50053:50053"
+      - "2116:2112"
     volumes:
       - ./inventory-service/.env:/app/.env
       - ./templates:/app/templates
@@ -85,6 +86,7 @@ services:
     ports:
       - "8083:8083"
       - "50051:50051"
+      - "2114:2112"
     networks:
       - micro_net
       - observability_net
@@ -103,6 +105,7 @@ services:
     ports:
       - "8082:8082"
       - "50052:50052"
+      - "2115:2112"
     depends_on:
       - nats
     restart: always
@@ -133,6 +136,7 @@ services:
       - user-service
     ports:
       - "8080:8080"
+      - "2113:2112"
     networks:
       - micro_net
       - observability_net
