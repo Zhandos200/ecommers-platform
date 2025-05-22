@@ -1,88 +1,130 @@
-# E-Commerce Platform (gRPC Microservices + REST API Gateway)
+# 🛒 E-Commerce Platform (gRPC Microservices + REST API Gateway + Observability)
 
-This project is a simplified e-commerce platform built using **Go**, **gRPC**, and **Gin**. It features a **microservices architecture** with internal gRPC communication and a RESTful API gateway.
-
----
-
-## Architecture
-
+A modern microservice-based e-commerce platform built using **Go**, **gRPC**, **Gin**, **Docker**, and **Prometheus/Grafana/Tempo/Loki** stack. It supports **user management**, **product inventory**, **order processing**, **RESTful UI**, **Redis caching**, and **observability** with logs, metrics, and traces.
 
 ---
 
-## Services
+## 🧱 Architecture
 
-### 1. Inventory Service
-- gRPC methods: `CreateProduct`, `GetProduct`, `UpdateProduct`, `DeleteProduct`, `ListProducts`
-- PostgreSQL for product data
+      [ HTML + CSS Pages ]
+             |
+    ┌────────▼────────┐
+    │   API Gateway   │ - REST (Gin)
+    └──┬────┬────┬────┘
+       │    │    │
+ gRPC  │    │    │  gRPC
+   ┌───▼┐ ┌─▼───┐ ┌──▼───┐
+   │User│ │Order│ │Inventory│
+   └────┘ └─────┘ └───────┘
 
-### 2. Order Service
-- gRPC methods: `CreateOrder`, `ListOrders`
-- Calls **Inventory Service** internally to check stock before creating an order
+Redis for caching
+PostgreSQL for persistence
+NATS for async events
+Tempo, Loki, Prometheus, Grafana for observability
 
-### 3. User Service
-- gRPC methods: `RegisterUser`, `AuthenticateUser`, `GetUserProfile`, `UpdateUser`, `DeleteUser`
-- Secure password hashing with bcrypt
-
----
-
-## API Gateway
-- Exposes RESTful endpoints:
-  - `POST /products`
-  - `GET /products`
-  - `POST /orders`
-  - `GET /orders`
-  - `POST /users/register`
-  - `POST /users/login`
-  - `PATCH /users/:id`
-  - `DELETE /users/:id`
 
 ---
 
-## Technologies Used
+## 📦 Microservices
 
-- Go 1.22+
-- gRPC & Protocol Buffers
-- Gin Web Framework
-- PostgreSQL
-- Docker & Docker Compose
+### 1. **User Service**
+- Register/Login (secure bcrypt password)
+- gRPC methods:
+  - `RegisterUser`, `AuthenticateUser`
+  - `GetUserProfile`, `UpdateUser`, `DeleteUser`
+
+### 2. **Inventory Service**
+- Full Product CRUD
+- gRPC methods:
+  - `CreateProduct`, `GetProduct`, `UpdateProduct`, `DeleteProduct`, `ListProducts`
+
+### 3. **Order Service**
+- Create/List Orders
+- Calls inventory service internally to update stock
+- gRPC methods:
+  - `CreateOrder`, `GetOrder`, `ListOrders`, `UpdateOrderStatus`
 
 ---
 
-## Setup & Run
+## 🌐 REST API Gateway (Gin)
 
-### 1. Clone the repository:
+Serves HTML pages and REST endpoints.
+
+### HTML Pages
+- `/` – Home
+- `/products` – Product listing with pagination
+- `/orders` – Order listing with pagination
+- `/users/:id` – User profile (with Redis caching)
+- `/users/register`, `/users/login` – Forms
+
+### Product Endpoints
+- `GET /products`
+- `GET /products/:id`
+- `POST /products`
+- `PUT /products/:id`
+- `DELETE /products/:id`
+
+### Order Endpoints
+- `GET /orders`
+- `GET /orders/:id`
+- `POST /orders`
+- `PATCH /orders/:id/status`
+
+### User Endpoints
+- `GET /users?id=1` → redirects to `/users/1`
+- `GET /users/:id`
+- `POST /users/register`
+- `POST /users/login`
+- `PATCH /users/:id`
+- `DELETE /users/:id`
+
+---
+
+## 📈 Observability & Monitoring
+
+| Tool       | Purpose             | Access                             |
+|------------|---------------------|-------------------------------------|
+| **Grafana** | Unified dashboards  | http://localhost:3000               |
+| **Prometheus** | Metrics collection | http://localhost:9090               |
+| **Tempo**  | Distributed tracing | Integrated in Grafana               |
+| **Loki**   | Log aggregation     | View logs via Grafana Explore tab   |
+
+- `/metrics` endpoint exposed at `:2112` for Prometheus
+- Gin middleware logs structured to Loki
+- Tempo captures gRPC + HTTP traces
+
+---
+
+## 🧰 Technologies Used
+
+- **Go 1.24**
+- **Gin (REST)**
+- **gRPC + Protobuf**
+- **PostgreSQL**
+- **Redis**
+- **Docker + Compose**
+- **Prometheus, Grafana, Tempo, Loki**
+
+---
+
+## 🏁 Getting Started
+
+### 1. Clone the repo
 ```bash
 git clone https://github.com/your-username/ecommers-platform.git
 cd ecommers-platform
 
-
-2. Start all services:
-docker-compose up --build
-
-3. Access API Gateway:
-Open browser: http://localhost:8080
-
-Create Product (POST /products)
-{
-  "name": "MacBook Pro",
-  "category": "Laptops",
-  "stock": 50,
-  "price": 1999.99
-}
+Run all services
+  docker-compose up --build
 
 
-Create Order (POST /orders)
-{
-  "user_id": "1",
-  "items": [
-    {"product_id": 1, "quantity": 2 }
-  ]
-}
+ Open in browser
+    Gateway: http://localhost:8080
+    Grafana: http://localhost:3000
 
-Notes
-Make sure PostgreSQL is running and accessible.
-
-Proto files are shared across services.
-
-For local dev, consider using replace in go.mod or copying proto-generated files.
-
+.env(prompt, add to root):
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB_USERS=users
+POSTGRES_DB_ORDERS=orders
+POSTGRES_DB_INVENTORY=inventory
