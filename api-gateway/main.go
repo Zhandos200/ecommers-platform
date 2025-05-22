@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -59,7 +60,22 @@ func main() {
 	redisClient := cache.NewRedisClient()
 
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
+	r.Static("/static", "./static")
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"mul": func(a, b int) int {
+			return a * b
+		},
+	}
+
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
+	r.SetHTMLTemplate(tmpl)
+
 	r.Use(middleware.RequestLogger())
 
 	invConn, _ := grpc.Dial("inventory-service:50053", grpc.WithInsecure())
@@ -79,14 +95,21 @@ func main() {
 	})
 
 	r.GET("/products", func(c *gin.Context) {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+		offset := (page - 1) * limit
+
+		// Call gRPC to get all products
 		res, err := inventoryClient.ListProducts(c, &pbInventory.Empty{})
 		if err != nil {
 			c.String(500, "Error loading products: %v", err)
 			return
 		}
-		var products []Product
+
+		// Convert to local struct
+		var allProducts []Product
 		for _, p := range res.Products {
-			products = append(products, Product{
+			allProducts = append(allProducts, Product{
 				ID:       int(p.Id),
 				Name:     p.Name,
 				Category: p.Category,
@@ -94,7 +117,24 @@ func main() {
 				Price:    float64(p.Price),
 			})
 		}
-		c.HTML(200, "products.html", gin.H{"Products": products})
+
+		// Apply pagination
+		total := len(allProducts)
+		end := offset + limit
+		if end > total {
+			end = total
+		}
+		if offset > total {
+			offset = total
+		}
+		products := allProducts[offset:end]
+
+		c.HTML(http.StatusOK, "products.html", gin.H{
+			"Products": products,
+			"Page":     page,
+			"Limit":    limit,
+			"Total":    total,
+		})
 	})
 
 	r.POST("/products", func(c *gin.Context) {
@@ -199,12 +239,17 @@ func main() {
 	})
 
 	r.GET("/orders", func(c *gin.Context) {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+		offset := (page - 1) * limit
+
 		res, err := orderClient.ListOrders(c, &pbOrder.UserOrdersRequest{})
 		if err != nil {
 			c.String(500, "Error loading orders: %v", err)
 			return
 		}
-		var orders []Order
+
+		var allOrders []Order
 		for _, o := range res.Orders {
 			var items []OrderItem
 			for _, item := range o.Items {
@@ -213,7 +258,7 @@ func main() {
 					Quantity:  int(item.Quantity),
 				})
 			}
-			orders = append(orders, Order{
+			allOrders = append(allOrders, Order{
 				ID:        int(o.Id),
 				UserID:    fmt.Sprint(o.UserId),
 				Status:    o.Status,
@@ -221,7 +266,24 @@ func main() {
 				Items:     items,
 			})
 		}
-		c.HTML(200, "orders.html", gin.H{"Orders": orders})
+
+		// Apply pagination
+		total := len(allOrders)
+		end := offset + limit
+		if end > total {
+			end = total
+		}
+		if offset > total {
+			offset = total
+		}
+		orders := allOrders[offset:end]
+
+		c.HTML(http.StatusOK, "orders.html", gin.H{
+			"Orders": orders,
+			"Page":   page,
+			"Limit":  limit,
+			"Total":  total,
+		})
 	})
 
 	r.POST("/orders", func(c *gin.Context) {

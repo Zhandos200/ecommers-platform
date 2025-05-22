@@ -1,8 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head><title>Products</title></head>
+<link rel="stylesheet" href="/static/styles.css">
+
 <body>
   <h1>Product List</h1>
+  <div class="pagination">
+  {{ if gt .Page 1 }}
+    <a href="?page={{ sub .Page 1 }}&limit={{ .Limit }}">Previous</a>
+  {{ end }}
+  <span>Page {{ .Page }}</span>
+  {{ if lt (mul .Page .Limit) .Total }}
+    <a href="?page={{ add .Page 1 }}&limit={{ .Limit }}">Next</a>
+  {{ end }}
+</div>
+
   <ul>
     {{ range .Products }}
       <li>

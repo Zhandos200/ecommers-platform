@@ -1,0 +1,107 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  color: #333;
+  border-bottom: 2px solid #ccc;
+  padding-bottom: 10px;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  background-color: #fff;
+  margin: 10px 0;
+  padding: 15px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+form {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 6px;
+  max-width: 400px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  background-color: #007bff;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+a {
+  display: inline-block;
+  margin-top: 10px;
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  gap: 8px;
+}
+
+.pagination a {
+  text-decoration: none;
+  color: #007bff;
+  padding: 8px 12px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.pagination a:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+.pagination .disabled {
+  color: #aaa;
+  border-color: #ccc;
+  pointer-events: none;
+  cursor: default;
+}
+
+.pagination span {
+  font-weight: bold;
+  color: #333;
+  margin-top: 17px;
+}
+
+p {
+    font-size: 18px;
+    margin: 10px 0;
+}
+
+strong {
+    color: #222;
+}
