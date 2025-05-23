@@ -1,0 +1,106 @@
+Inventory Service
+CreateProduct
+
+curl -X POST http://localhost:8080/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "MacBook Pro",
+    "category": "Laptops",
+    "stock": 50,
+    "price": 1999.99
+  }'
+Описание: создаёт новый товар и возвращает его с полем id.
+
+GetProduct
+
+curl http://localhost:8080/products/1
+Описание: получает товар с id=1.
+
+UpdateProduct
+
+curl -X PATCH http://localhost:8080/products/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "MacBook Pro",
+    "category": "Laptops",
+    "stock": 45,
+    "price": 1899.99
+  }'
+Описание: обновляет поля товара 1.
+
+DeleteProduct
+
+curl -X DELETE http://localhost:8080/products/1
+Описание: удаляет товар 1.
+
+ListProducts
+
+curl http://localhost:8080/products
+Описание: возвращает список всех товаров.
+
+Order Service
+CreateOrder
+
+curl -X POST http://localhost:8080/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": 1,
+    "items": [
+      { "product_id": 1, "quantity": 2, "price": 1999.99 }
+    ]
+  }'
+Описание: создаёт заказ для user_id=1, возвращает объект заказа с id, total_amount, created_at.
+
+ListOrders
+
+curl http://localhost:8080/orders
+Описание: возвращает все заказы.
+
+User Service
+RegisterUser
+
+curl -X POST http://localhost:8080/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john_doe",
+    "email":    "john@example.com",
+    "password": "securePass123"
+  }'
+Описание: регистрирует нового пользователя, возвращает его профиль без пароля.
+
+AuthenticateUser
+
+curl -X POST http://localhost:8080/users/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email":    "john@example.com",
+    "password": "securePass123"
+  }'
+Ответ:
+
+json
+{ "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+Сохраните этот токен для следующих вызовов.
+
+GetUserProfile
+
+curl http://localhost:8080/users/1 \
+  -H "Authorization: Bearer <token>"
+Описание: возвращает профиль пользователя 1.
+
+UpdateUser
+
+curl -X PATCH http://localhost:8080/users/1 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "username": "johnny_d",
+    "email":    "johnny@example.com",
+    "password": "newSecret!"
+  }'
+Описание: обновляет данные пользователя 1.
+
+DeleteUser
+curl -X DELETE http://localhost:8080/users/1 \
+  -H "Authorization: Bearer <token>"
+Описание: удаляет пользователя 1.

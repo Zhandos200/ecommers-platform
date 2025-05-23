@@ -3,10 +3,8 @@ package handler
 import (
 	"context"
 	"user-service/internal/model"
-	"user-service/internal/repository"
 	"user-service/internal/usecase"
 
-	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -19,28 +17,16 @@ type UserHandler struct {
 	usecase usecase.UserUsecase
 }
 
-func NewUserHandler(db *sqlx.DB) *UserHandler {
-	repo := repository.NewUserRepository(db)
-	uc := usecase.NewUserUsecase(repo)
+func NewUserHandler(uc usecase.UserUsecase) *UserHandler {
 	return &UserHandler{usecase: uc}
 }
 
-func (h *UserHandler) RegisterUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
-	user := &model.User{
-		Email:    req.Email,
-		Name:     req.Name,
-		Password: req.Password,
-	}
-
+func (h *UserHandler) RegisterUser(ctx context.Context, req *pb.UserRequest) (*pb.RegisterUserResponse, error) {
+	user := &model.User{Email: req.Email, Name: req.Name, Password: req.Password}
 	if err := h.usecase.Register(user); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to register user: %v", err)
+		return nil, status.Errorf(codes.Internal, "register failed: %v", err)
 	}
-
-	return &pb.UserResponse{
-		Id:    int64(user.ID),
-		Email: user.Email,
-		Name:  user.Name,
-	}, nil
+	return &pb.RegisterUserResponse{Message: "Verification email sent"}, nil
 }
 
 func (h *UserHandler) AuthenticateUser(ctx context.Context, req *pb.AuthRequest) (*pb.AuthResponse, error) {
@@ -76,7 +62,7 @@ func (h *UserHandler) GetUserProfile(ctx context.Context, req *pb.UserID) (*pb.U
 	}, nil
 }
 
-func (h *UserHandler) UpdateUser(ctx context.Context, req *pb.UserRequest) (*pb.UserResponse, error) {
+func (h *UserHandler) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.UserResponse, error) {
 	user := model.User{
 		ID:       int(req.Id),
 		Email:    req.Email,
@@ -100,4 +86,10 @@ func (h *UserHandler) DeleteUser(ctx context.Context, req *pb.UserID) (*emptypb.
 		return nil, status.Errorf(codes.Internal, "failed to delete user: %v", err)
 	}
 	return &emptypb.Empty{}, nil
+}
+func (h *UserHandler) VerifyUser(ctx context.Context, req *pb.VerifyRequest) (*pb.VerifyResponse, error) {
+	if err := h.usecase.Verify(req.Token); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "verify failed: %v", err)
+	}
+	return &pb.VerifyResponse{Success: true}, nil
 }

@@ -83,6 +83,11 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB_USERS}
+      SMTP_HOST: smtp.mail.ru
+      SMTP_PORT: 587
+      SMTP_USER: kanna1234@mail.ru
+      SMTP_PASS: gXSRTEDmxfXewJYZPjxP
+      MAIL_FROM: kanna1234@mail.ru
     ports:
       - "8083:8083"
       - "50051:50051"
@@ -140,6 +145,12 @@ services:
     networks:
       - micro_net
       - observability_net
+    environment:
+      SMTP_HOST: smtp.mail.ru
+      SMTP_PORT: 587
+      SMTP_USER: kanna1234@mail.ru
+      SMTP_PASS: gXSRTEDmxfXewJYZPjxP
+      MAIL_FROM: kanna1234@mail.ru
   
   grafana:
     image: grafana/grafana:latest

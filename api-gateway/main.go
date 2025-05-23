@@ -454,9 +454,9 @@ func main() {
 
 	r.POST("/users/register", func(c *gin.Context) {
 		var input struct {
-			Name     string `json:"name"`
-			Email    string `json:"email"`
-			Password string `json:"password"`
+			Email    string `form:"email" binding:"required,email"`
+			Name     string `form:"name"  binding:"required"`
+			Password string `form:"password" binding:"required,min=6"`
 		}
 		if err := c.ShouldBind(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
@@ -476,9 +476,7 @@ func main() {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"id":    res.Id,
-			"name":  res.Name,
-			"email": res.Email,
+			"message": res.GetMessage(),
 		})
 	})
 
@@ -519,7 +517,7 @@ func main() {
 			return
 		}
 
-		req := &pbUser.UserRequest{
+		req := &pbUser.UpdateUserRequest{
 			Id:       int64(id),
 			Email:    input.Email,
 			Name:     input.Name,
@@ -560,6 +558,28 @@ func main() {
 		cache.DeleteCache(redisClient, "user:"+idParam)
 
 		c.JSON(200, gin.H{"message": "User deleted"})
+	})
+
+	// Добавляем маршрут для верификации по ссылке
+	r.GET("/verify", func(c *gin.Context) {
+		// 1) Читаем токен из query-параметра
+		token := c.Query("token")
+		if token == "" {
+			c.String(http.StatusBadRequest, "Missing token")
+			return
+		}
+
+		// 2) Вызываем gRPC-метод VerifyUser
+		resp, err := userClient.VerifyUser(context.Background(), &pbUser.VerifyRequest{
+			Token: token,
+		})
+		if err != nil || !resp.GetSuccess() {
+			c.String(http.StatusBadRequest, "Verification failed: %v", err)
+			return
+		}
+
+		// 3) Успех — показываем пользователю страницу или перенаправляем
+		c.String(http.StatusOK, "Email successfully verified! You can now <a href=\"/login\">login</a>.")
 	})
 
 	r.Run(":8080")

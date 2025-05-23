@@ -5,42 +5,55 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"user-service/infrastructure"
-	"user-service/internal/handler"
-	"user-service/logger"
-	pb "user-service/pb/user"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+
+	"user-service/infrastructure"
+
+	"user-service/internal/handler"
+	"user-service/internal/repository"
+	"user-service/internal/usecase"
+	"user-service/logger"
+	userpb "user-service/pb/user"
 )
 
 func main() {
+	// 1) Prometheus metrics
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(":2112", nil)
+		if err := http.ListenAndServe(":2112", nil); err != nil {
+			log.Fatalf("metrics server error: %v", err)
+		}
 	}()
 
+	// 2) Init logger
 	logger.InitLogger()
 	logger.Log.Info("🔄 User service started")
-	// Connect to DB
+
+	// 3) Connect to Postgres
 	db := infrastructure.NewPostgres()
 
-	// Create a gRPC server
-	grpcServer := grpc.NewServer()
+	// 4) Конструируем слои приложения:
+	// 4.1) Репозиторий
+	repo := repository.NewUserRepository(db)
+	// 4.2) Mailer для отправки писем
+	mailer := usecase.NewSMTPMailer()
+	// 4.3) Usecase (repo + mailer)
+	uc := usecase.NewUserUsecase(repo, mailer)
+	// 4.4) Handler (gRPC)
+	userHandler := handler.NewUserHandler(uc)
 
-	// Create handler that implements pb.UserServiceServer
-	userHandler := handler.NewUserHandler(db)
-
-	// Register the handler with gRPC
-	pb.RegisterUserServiceServer(grpcServer, userHandler)
-
-	// Start listening
+	// 5) Запускаем gRPC-сервер
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		logger.Log.Error(fmt.Sprintf("Failed to listen: %v", err))
+		return
 	}
+	grpcServer := grpc.NewServer()
+	userpb.RegisterUserServiceServer(grpcServer, userHandler)
 
-	log.Println("User gRPC server running on port 50051")
+	logger.Log.Info("🚀 User gRPC server running on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
 		logger.Log.Error(fmt.Sprintf("Failed to serve gRPC server: %v", err))
 	}
